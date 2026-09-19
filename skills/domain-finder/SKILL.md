@@ -50,6 +50,8 @@ mind,sh
 cyber,me
 ```
 
+**Agent behavior:** when the user mentions a list in conversation ("check the domains in ~/data/domains.csv", "run these against .io"), resolve the path (`~` and relative paths both work), peek at the first lines to detect format, and run `check --file <path>` — the user should never need to know CLI syntax. If the file doesn't parse cleanly, fall back to reading it and passing names as arguments.
+
 ## Status vocabulary (what a result actually means)
 
 - `available` — no registry record AND no premium/reserved marker. Only this means "registrable at retail."
