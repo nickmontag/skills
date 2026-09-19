@@ -22,6 +22,34 @@ Generate: `... generate --description "..." --tlds com,io,app --count 15 [--mode
 
 Flags: `--json`, `--workers N` (default 4), `--delay S`, `--model/--provider`. Exit 0 iff at least one name is genuinely available.
 
+## Using a name list ("using this list")
+
+Both subcommands accept lists from a file:
+
+```bash
+# text file: one domain or bare SLD per line, # comments allowed
+python3 scripts/domain_finder.py check --file names.txt
+python3 scripts/domain_finder.py check --file names.txt --tlds com,io   # bare SLDs expand across TLDs
+
+# CSV with header row: either a `domain` column, or `sld` + optional `tld`
+python3 scripts/domain_finder.py check --file names.csv
+
+# give the list to the LLM as its reference/seed material for generation;
+# its ideas and your list are all checked together
+python3 scripts/domain_finder.py generate --description "..." \
+    --reference seeds.txt --tlds com,io --count 10
+python3 scripts/domain_finder.py generate --description "..." \
+    --reference seeds.csv --file seeds.csv --tlds com,io   # force-check every listed name too
+```
+
+CSV example:
+
+```csv
+sld,tld
+mind,sh
+cyber,me
+```
+
 ## Status vocabulary (what a result actually means)
 
 - `available` — no registry record AND no premium/reserved marker. Only this means "registrable at retail."

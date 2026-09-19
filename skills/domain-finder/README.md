@@ -49,6 +49,16 @@ The final price truth is always the registrar checkout. This tool eliminates the
 - Crowded TLDs where everything short is premium or taken: .io, .sh, .me, .co, .gg, .is.
 - rdap.org must never be trusted for TLDs missing from data.iana.org/rdap/dns.json — check the bootstrap before adding a TLD, and control-test one known-registered domain first.
 
+### Using a name list
+
+```bash
+python3 scripts/domain_finder.py check --file names.txt --tlds com,io
+python3 scripts/domain_finder.py check --file names.csv
+python3 scripts/domain_finder.py generate --description "..." --reference seeds.txt
+```
+
+`--file` reads names from a text file (one domain or bare SLD per line, `#` comments) or a CSV (`domain` column, or `sld` + optional `tld`). Bare SLDs expand across `--tlds`. On `generate`, `--reference` hands the list to the LLM as seed material (its ideas and your list are checked together); `--file` adds names to the check queue directly.
+
 ## Status
 
 The RDAP/whois checking paths and the LLM generation path are exercised and working. The per-TLD routing table covers the TLDs listed in `SKILL.md`; new TLDs need a bootstrap check and possibly a direct route before results can be trusted (the tool returns `unverifiable` rather than guessing). Premium detection is reliable where registries surface premium strings in WHOIS (e.g. .me) and best-effort where they don't (e.g. .sh).

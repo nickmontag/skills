@@ -47,7 +47,12 @@ LABEL_RE = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
 
 
 def normalize(name: str):
-    """Return (sld, tld) or None if not a plausible domain."""
+    """Return (sld, tld) or None if not a plausible domain.
+
+    A bare SLD with no dot is accepted when `tlds` is provided: it expands
+    across the TLD list (caller handles the expansion; this validates the
+    SLD shape so `check --file` + `--tlds` works on bare names).
+    """
     name = name.strip().lower().replace("https://", "").replace("http://", "")
     name = name.rstrip("/").split("/")[0]
     name = name.split(":")[0]  # strip port
@@ -157,15 +162,31 @@ def check_names(names, workers=DEFAULT_WORKERS, delay=0.0):
 
 
 def generate_candidates(description: str, tlds, count: int, model=None,
-                        provider=None, timeout=180):
-    """One-shot LLM call via the local `hermes` CLI. Returns list of names."""
+                        provider=None, timeout=180, reference=None):
+    """One-shot LLM call via the local `hermes` CLI. Returns list of names.
+
+    `reference` is an optional path to a text/CSV name list given to the LLM
+    as its seed/reference material — it is told to use those names (and
+    variations on them) alongside its own ideas.
+    """
     tld_str = ", ".join(tlds)
+    ref_block = ""
+    if reference:
+        ref_names = load_name_file(reference, tlds)
+        if ref_names:
+            shown = "\n".join("- " + n for n in ref_names[:200])
+            ref_block = (
+                f"\nHere is a reference list of names to use as your seed "
+                f"material. Check these ideas and generate variations on "
+                f"them, as well as your own:\n{shown}\n"
+            )
     prompt = (
         f"Brainstorm {count} short, brandable domain names for: {description!r}. "
         f"Rules: single words or tight compounds, lowercase letters and hyphens "
         f"only, 3-14 characters for the name part, pronounceable, no numbers. "
         f"Each must be a real, creative candidate relevant to the description — "
         f"NEVER placeholders like name1.com or example.com. "
+        f"{ref_block}"
         f"Return ONLY a JSON array of {count} full domains using these TLDs: "
         f"{tld_str}. Example format: [\"puplate.com\", \"barkbistro.app\"]. No prose."
     )
@@ -200,6 +221,51 @@ def generate_candidates(description: str, tlds, count: int, model=None,
                 and not placeholder.match(normalize(item)[0]):
             valid.append(item.strip().lower())
     return valid
+
+
+def load_name_file(path, tlds=None):
+    """Load candidate names from a text or CSV file.
+
+    Accepted formats:
+    - one domain per line:                 myapp.com
+    - one bare SLD per line (needs --tlds): myapp
+    - CSV with a header row. Columns: either `domain` or `sld` (+ optional
+      `tld`); any other columns are ignored. Bare `sld` rows expand across
+      `tlds` when provided.
+
+    Lines starting with # are comments. Returns a list of domain strings.
+    """
+    import csv
+    out = []
+    with open(path, newline="", encoding="utf-8") as f:
+        sample = f.read(4096)
+        f.seek(0)
+        is_csv = "," in sample.splitlines()[0] if sample.splitlines() else False
+        if is_csv:
+            reader = csv.DictReader(
+                ln for ln in f if not ln.lstrip().startswith("#"))
+            cols = {c.strip().lower(): c for c in (reader.fieldnames or [])}
+            for row in reader:
+                if "domain" in cols and row.get(cols["domain"]):
+                    out.append(row[cols["domain"]].strip())
+                elif "sld" in cols and row.get(cols["sld"]):
+                    sld = row[cols["sld"]].strip()
+                    row_tld = (row.get(cols.get("tld", ""), "") or "").strip() \
+                        if "tld" in cols else ""
+                    if row_tld:
+                        out.append(f"{sld}.{row_tld}")
+                    elif tlds:
+                        out.extend(f"{sld}.{t}" for t in tlds)
+                    else:
+                        print(f"skipping {sld}: bare SLD in CSV without "
+                              f"--tlds or a tld column", file=sys.stderr)
+        else:
+            for ln in f:
+                ln = ln.strip()
+                if not ln or ln.startswith("#"):
+                    continue
+                out.append(ln.split()[0])  # allow trailing comments/whitespace
+    return [n for n in out if n]
 
 
 def print_results(results):
@@ -238,7 +304,13 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     pc = sub.add_parser("check", help="check explicit domain names")
-    pc.add_argument("names", nargs="+", help="domains like myapp.com")
+    pc.add_argument("names", nargs="*", help="domains like myapp.com")
+    pc.add_argument("--file", default=None,
+                    help="read names from a .txt (one domain/SLD per line) "
+                         "or .csv (columns: domain, or sld + optional tld)")
+    pc.add_argument("--tlds", default=None,
+                    help="expand bare SLDs from --file across these TLDs "
+                         "(comma-separated)")
     pc.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
     pc.add_argument("--delay", type=float, default=0.0,
                     help="per-request sleep seconds (anti-throttle)")
@@ -246,6 +318,14 @@ def main():
 
     pg = sub.add_parser("generate", help="LLM-generate candidates, then check")
     pg.add_argument("--description", required=True)
+    pg.add_argument("--reference", default=None,
+                    help="path to a text/CSV name list the LLM should use as "
+                         "its reference/seed list (checked alongside its own "
+                         "ideas)")
+    pg.add_argument("--file", default=None,
+                    help="extra names from a text/CSV file, checked alongside "
+                         "the LLM's ideas (same formats as `check --file`; "
+                         "bare SLDs expand across --tlds)")
     pg.add_argument("--tlds", default="com,io,app,dev,net")
     pg.add_argument("--count", type=int, default=15)
     pg.add_argument("--model", default=None)
@@ -256,20 +336,41 @@ def main():
 
     args = ap.parse_args()
 
+    file_names = []
+    expand_tlds = [t.strip().lower()
+                   for t in (getattr(args, "tlds", "") or "").split(",")
+                   if t.strip()]
+    if getattr(args, "file", None):
+        file_names = load_name_file(args.file, expand_tlds)
+        if not file_names:
+            sys.exit("error: no usable names found in the file")
+
     if args.cmd == "check":
-        bad = [n for n in args.names if not normalize(n)]
+        raw_names = list(args.names) + list(file_names)
+        # bare SLDs from the file expand across --tlds when given
+        expanded = []
+        for n in raw_names:
+            if "." not in n and expand_tlds:
+                expanded.extend(f"{n.strip().lower()}.{t}" for t in expand_tlds)
+            else:
+                expanded.append(n)
+        bad = [n for n in expanded if not normalize(n)]
         if bad:
             print(f"skipping implausible names: {bad}", file=sys.stderr)
-        names = [n for n in args.names if normalize(n)]
+        names = [n for n in expanded if normalize(n)]
         if not names:
             sys.exit(2)
         results = check_names(names, args.workers, args.delay)
     else:
         tlds = [t.strip().lower() for t in args.tlds.split(",") if t.strip()]
         candidates = generate_candidates(args.description, tlds, args.count,
-                                         args.model, args.provider)
+                                         args.model, args.provider,
+                                         reference=getattr(args, "reference",
+                                                           None))
+        candidates += [n for n in file_names if n not in candidates]
+        candidates = [c for c in candidates if normalize(c)]
         if not candidates:
-            sys.exit("error: LLM produced no valid domains")
+            sys.exit("error: no candidates (LLM produced none / file empty)")
         print(f"checking {len(candidates)} candidates...", file=sys.stderr)
         results = check_names(candidates, args.workers, args.delay)
 
