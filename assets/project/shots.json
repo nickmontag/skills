@@ -1,0 +1,7 @@
+{
+  "_about": "Everything that needs the person's yes: look tests, character studies, key frames, scenes, shots, generated media. status: idea | draft | awaiting | notes | approved | rejected | superseded. 'uses' = builds on it (it must be approved first; checks.mjs enforces this). 'refs' = looked at for direction only (no gate). 'render' = how to re-render a code-made item for a pixel comparison: { t, query }. Approve only after the person says yes: node tools/checks.mjs --approve=ID (records the date and freezes the file by hash). Make each approvable thing its own item: a design and the things derived from it are separate items.",
+  "items": [
+    { "id": "look-1", "what": "the look: one key frame of the walk", "status": "awaiting", "version": "v1", "file": "out/stills/t2_00.png", "render": { "t": 2 }, "uses": [], "refs": [] },
+    { "id": "walk", "what": "scene 1, the walk, animated", "status": "idea", "uses": ["look-1"], "refs": [] }
+  ]
+}

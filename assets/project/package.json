@@ -1,0 +1,19 @@
+{
+  "name": "animation",
+  "private": true,
+  "description": "A code-drawn animation: every frame is a pure function of time, rendered in headless Chrome.",
+  "scripts": {
+    "test": "node tests/kit.test.mjs",
+    "still": "node tools/render.mjs --page=index.html --stills=0 --out=out/stills",
+    "sheet": "node tools/render.mjs --page=index.html --sheet=all --out=out/sheet.png",
+    "probe": "node tools/render.mjs --page=index.html --probe --out=out/probe.json",
+    "check": "node tools/checks.mjs --probe=out/probe.json",
+    "video": "node tools/render.mjs --page=index.html --video --out=out/video.mp4",
+    "metrics": "node tools/metrics.mjs --video=out/video.mp4 --probe=out/probe.json --graph=out/video.metrics.png",
+    "review": "npm run probe && npm run check && npm run video && npm run metrics && npm run sheet",
+    "smoke": "npm test && node tools/render.mjs --page=index.html --stills=0 --out=out/smoke && node tools/render.mjs --page=index.html --sheet=all --out=out/smoke/sheet.png && node tools/render.mjs --page=index.html --video --to=2 --workers=2 --out=out/smoke/smoke.mp4 && node tools/metrics.mjs --video=out/smoke/smoke.mp4 && npm run probe && npm run check"
+  },
+  "dependencies": {
+    "puppeteer-core": "^25.12.0"
+  }
+}
