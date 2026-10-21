@@ -12,6 +12,25 @@ Domain availability data lies in three distinct ways, and each one silently prod
 
 This tool routes each TLD to a data source that actually works (registry-direct RDAP where the bootstrap is missing, whois with premium/reserved string detection where RDAP doesn't exist) and classifies every name as `available`, `registered`, `premium`, `reserved`, or `unverifiable`. Only a clean "available" means registrable at retail.
 
+## Install
+
+It lives in the [skills](https://github.com/nickmontag/skills) repo. In Claude Code:
+
+```
+/plugin marketplace add nickmontag/skills
+/plugin install domain-finder@nickmontag-skills
+```
+
+Or clone the repo and link this folder into your skills folder:
+
+```bash
+git clone https://github.com/nickmontag/skills ~/src/nickmontag-skills
+ln -s ~/src/nickmontag-skills/skills/domain-finder ~/.claude/skills/domain-finder
+```
+
+For Codex, link into `~/.codex/skills/` instead. As a skill, the agent brainstorms names itself and runs `check`; the
+script also works on its own from this folder (below).
+
 ## Quickstart
 
 ```bash
@@ -25,7 +44,7 @@ python3 scripts/domain_finder.py generate \
     --model <your-model> --provider <your-provider>
 ```
 
-Requires Python 3.8+ (stdlib only) and the `whois` CLI for TLDs without RDAP.
+Requires Python 3.8+ (stdlib only) and the `whois` CLI for TLDs without RDAP. `generate` also needs the [Hermes](https://github.com/NousResearch/hermes-agent) CLI (`hermes`) on `PATH`.
 
 Flags: `--json` (machine-readable), `--workers N`, `--delay S` (anti-throttle), `--model/--provider` (pass through to the `hermes` CLI used for generation). Exit code 0 iff at least one name is genuinely available.
 
@@ -65,4 +84,4 @@ The RDAP/whois checking paths and the LLM generation path are exercised and work
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT (see the [LICENSE](../../LICENSE) at the repo root)

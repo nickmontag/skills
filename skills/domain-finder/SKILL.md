@@ -1,26 +1,23 @@
 ---
 name: domain-finder
-description: Use when checking domain availability or name ideas.
-version: 2.0.0
-author: Hermes Agent
+description: Check whether domain names are actually registrable at retail price, and find available names for a project. Routes each TLD to a data source that works (registry RDAP where IANA's bootstrap has no entry, whois with premium/reserved detection where there is no RDAP), so bogus "not found" answers and aftermarket-held names never read as available. Use whenever someone asks if a domain is taken or free, wants domain or name ideas for an app, product, brand or project, wants a list or CSV of domains checked, or asks about short, premium or ccTLD domains (.io, .sh, .me, .ai, .co, .mn), even if they never say "RDAP" or "whois".
 license: MIT
 metadata:
-  hermes:
-    tags: [domains, rdap, availability, naming]
-    related_skills: []
+  author: Nick Montag
+  version: "2.0.0"
 ---
 
 # Domain Finder
 
 ## Overview
 
-Availability checking + LLM candidate generation, hardened against the three
-ways availability data lies. Script: `scripts/domain_finder.py` (stdlib only).
+Availability checking, hardened against the three ways availability data lies. Script: `scripts/domain_finder.py` (stdlib only, Python 3.8+, plus the `whois` CLI for TLDs without RDAP). Paths here are relative to this skill's folder.
 
-Check: `python3 ~/.hermes/skills/domain-finder/scripts/domain_finder.py check myapp.com myapp.io`
-Generate: `... generate --description "..." --tlds com,io,app --count 15 [--model M --provider P]`
+Check: `python3 scripts/domain_finder.py check myapp.com myapp.io`
 
-Flags: `--json`, `--workers N` (default 4), `--delay S`, `--model/--provider`. Exit 0 iff at least one name is genuinely available.
+Flags: `--json`, `--workers N` (default 4), `--delay S`. Exit 0 iff at least one name is genuinely available.
+
+**Finding names:** brainstorm the candidates yourself (see "Search strategy that worked" below), then pass them to `check` as arguments, or write them to a file for `check --file`. The script's `generate` subcommand runs the brainstorm through the `hermes` CLI instead (`generate --description "..." --tlds com,io,app --count 15 [--model M --provider P]`); use it only if `hermes` is on PATH.
 
 ## Using a name list ("using this list")
 
@@ -76,7 +73,7 @@ Registries (.me is the worst offender) hold attractive unregistered names in pre
 - Weak spot: some registries (.sh observed) do not surface premium status in whois at all. A whois "available" on such TLDs is *probably* right for ordinary words but must be confirmed at the registrar checkout for anything short/desirable.
 - Registrar search pages (Porkbun, Namecheap, GoDaddy) hard-block automated browsers. Don't burn time trying; ask the user to eyeball the checkout price for finalists.
 
-## Pitfall 3: LLM output parsing
+## Pitfall 3: LLM output parsing (`generate` only)
 
 The `generate` path calls `hermes chat -q --cli`. Baked-in fixes:
 1. The CLI **echoes the prompt** — take the LAST JSON array in stdout, not the first.
@@ -94,7 +91,7 @@ The `generate` path calls `hermes chat -q --cli`. Baked-in fixes:
 ## Search strategy that worked
 
 1. Decide the shape first: real word? word+ish hack (stem + `i.sh`)? verb.me phrase? Each has different TLD fit.
-2. Generate candidates (LLM or curated list) in batches of 20-40; check with `--workers 2 --delay 1-2` for whois TLDs, higher for RDAP.
+2. Brainstorm candidates (yourself, `generate`, or a curated list) in batches of 20-40; check with `--workers 2 --delay 1-2` for whois TLDs, higher for RDAP.
 3. For sweeps (hundreds of names), run as a **background terminal job** writing to a log; whois at ~1-2s/check means 1,000 names ≈ 30 min. Foreground calls time out at 600s.
 4. Apply the **say-it-out-loud filter** before falling in love: only keep names that read as a natural spoken phrase ("correct me" passes, "argue me" fails).
 5. Present finalists with per-TLD price context and the caveat that checkout is the only price truth.
