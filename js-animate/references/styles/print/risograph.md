@@ -10,4 +10,3 @@ Print processes. Shared parts: `references/styles/shared.md`; index: `references
   - Halftone each ink at a different screen angle.
   - Per-ink density noise, and a 2–5 px slip.
   - Faint drum banding: horizontal density stripes.
-- Example: `~/Design/AI/riso-meme/`.

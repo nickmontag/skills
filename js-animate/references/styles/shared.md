@@ -30,7 +30,3 @@ The parts every look in the style library is built from. The index is `reference
   edges read as vector art.
 - **Supersample** at 2× and downsample with Lanczos. It's cheaper than analytic antialiasing and hides
   aliasing in fine line fields.
-
-A worked example of all of this is `~/Design/AI/linocut/`:
-- `lino_kit.py`: the SDF kit, `carve`, and the press.
-- `linocut.py`: the fisherman print.

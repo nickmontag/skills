@@ -7,4 +7,3 @@ Print processes. Shared parts: `references/styles/shared.md`; index: `references
   Cream stock. Gold foil where money shows. Ornate borders, banners and sunbursts.
 - **In code:** keep color and line on separate layers that meet only in the composite. Color layers get no
   gradients, only a solid or a crayon-grain tint.
-- A full rulebook and engine is in `~/Design/AI/gilded-age-chromolithograph/SKILL.md`.
