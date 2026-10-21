@@ -1,6 +1,9 @@
 ---
 name: js-animate
 description: How to make animated videos in code — music videos, lyric videos, animated shorts, explainers, motion graphics, character animation — drawn with JavaScript (Canvas 2D / WebGL) as pure functions of time, rendered frame by frame in headless Chrome and encoded with ffmpeg. Covers the architecture, syncing to a song (word/letter timing, beats, lip sync), the concept-and-review loop with the person, design pitfalls (character appeal, light logic, legibility, staging), and encoding/compression traps. Use this whenever someone wants an animation or video produced programmatically, a video synced to audio, animated characters, hand-drawn-looking illustrations or memes authored as stroke data, a cartoon, anime, flat-vector or pixel-art look, rigged characters and walk cycles, a procedural art style rendered to MP4 or GIF, or asks to fix, re-time or re-render such a project — even if they never say "JavaScript" or "headless Chrome".
+license: MIT
+metadata:
+  author: Nick Montag
 ---
 
 # Animated video in code

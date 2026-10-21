@@ -1,0 +1,40 @@
+{
+  "name": "nickmontag-skills",
+  "owner": {
+    "name": "Nick Montag"
+  },
+  "metadata": {
+    "description": "Agent skills by Nick Montag, one per folder under skills/",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "js-animate",
+      "description": "Make animated videos in code: music videos, lyric videos, shorts, explainers, motion graphics and character animation, drawn in JavaScript and rendered with headless Chrome and ffmpeg",
+      "source": "./",
+      "strict": false,
+      "skills": ["./skills/js-animate"],
+      "version": "1.0.0",
+      "author": {
+        "name": "Nick Montag"
+      },
+      "license": "MIT",
+      "keywords": ["animation", "video", "canvas", "music-video", "lyric-video", "ffmpeg"],
+      "category": "creative"
+    },
+    {
+      "name": "domain-finder",
+      "description": "Check whether domain names are actually registrable at retail, with RDAP/whois routing that survives bogus 404s and premium-held names",
+      "source": "./",
+      "strict": false,
+      "skills": ["./skills/domain-finder"],
+      "version": "2.0.0",
+      "author": {
+        "name": "Nick Montag"
+      },
+      "license": "MIT",
+      "keywords": ["domains", "rdap", "whois", "availability", "naming"],
+      "category": "productivity"
+    }
+  ]
+}
