@@ -1,6 +1,6 @@
 #!/bin/bash
 # new-project.sh: scaffold a code-drawn animation project from the skill's template.
-#   ~/.claude/skills/js-animate/scripts/new-project.sh ~/work/my-film
+#   scripts/new-project.sh ~/work/my-film   (run from the skill folder, or by its full path)
 # Copies assets/project/ and the tools (render, checks, metrics, still) into the folder, then prints the next steps.
 set -e
 SKILL="$(cd "$(dirname "$0")/.." && pwd)"; DEST="$1"

@@ -21,12 +21,18 @@ projects:
 
 ## Install
 
-It lives in the [skills](https://github.com/nickmontag/skills) repo. Clone that, then link this folder into your
-skills folder:
+It lives in the [skills](https://github.com/nickmontag/skills) repo. In Claude Code:
+
+```
+/plugin marketplace add nickmontag/skills
+/plugin install js-animate@nickmontag-skills
+```
+
+Or clone the repo and link this folder into your skills folder:
 
 ```bash
-git clone https://github.com/nickmontag/skills ~/src/skills
-ln -s ~/src/skills/js-animate ~/.claude/skills/js-animate
+git clone https://github.com/nickmontag/skills ~/src/nickmontag-skills
+ln -s ~/src/nickmontag-skills/skills/js-animate ~/.claude/skills/js-animate
 ```
 
 For Codex, link into `~/.codex/skills/` instead. The agent picks it up whenever you ask for an animation or a video
@@ -43,8 +49,10 @@ Developed and tested on macOS (Apple Silicon). Linux should work with `CHROME_PA
 
 ## First hour
 
+Ask the agent for a new animation project, or scaffold one yourself from the skill folder:
+
 ```bash
-~/.claude/skills/js-animate/scripts/new-project.sh ~/work/my-film
+scripts/new-project.sh ~/work/my-film
 cd ~/work/my-film && npm install && npm run smoke
 ```
 
@@ -67,4 +75,4 @@ and scenes.
 
 ## License
 
-MIT (see the [LICENSE](../LICENSE) at the repo root)
+MIT (see the [LICENSE](../../LICENSE) at the repo root)
