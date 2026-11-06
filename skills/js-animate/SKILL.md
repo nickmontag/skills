@@ -21,10 +21,10 @@ Bundled:
   - `data/timing.js` holds the key moments as data. `src/cast/` and `src/scenes/` hold one file per character and per scene, with a working example of each.
   - `rules.mjs` holds the project's own checks.
   - `README.md`, `RULES.md`, `STORYBOARD.md`, `REVIEW.md` and `shots.json` are the project's memory (§4).
-- `scripts/render.mjs`: renders stills, contact sheets, strips, onion skins, motion trails, probe data, and resumable video in x264 or ProRes (with handles and alpha). The header lists every mode.
+- `scripts/render.mjs`: renders stills, contact sheets, strips, onion skins, motion trails, variant grids, probe data, and video in x264 or ProRes (with handles and alpha). Video segments are hashed against the page's files and the render settings; `--patch` splices a re-rendered span into a finished file; `--sweep` hunts errors and NaN coordinates across the timeline. The header lists every mode.
 - `scripts/checks.mjs`: built-in rules plus the project's own rules over the probe data, and the approval gates in `shots.json`.
 - `scripts/metrics.mjs`: measures the encoded file frame by frame: black, grey, flash and stray frames, cuts, freezes, bitrate, sparklines and a graph.
-- `scripts/still.sh`: one hang-safe still from plain headless Chrome (no Node).
+- `scripts/still.sh`: one hang-safe still from plain headless Chrome (no Node), GPU on: a screenshot, or `--dump` for the exact pixels `renderAt` returns, alpha included.
 - `references/checks-and-pace.md`: how to use the instruments, how to turn notes into rules, and the numbers for pace. The model's bias is to squeeze time.
 - `references/hybrid.md`: what code can't do well, how to choose the engine for each element (Canvas, GPU code, Blender, image or video models), hand-offs, and paid-API gates.
 - `references/motion-craft.md`: how things move, in any look. It covers timing and spacing, rigs and IK, walk cycles with planted feet, follow-through, smears and blur, hits and effects, the multiplane camera, and motion-graphics primitives. It gives each topic's kit signatures.
@@ -65,10 +65,14 @@ Bundled:
 ## 2. Rendering and encoding
 
 Use `tools/render.mjs` (the header lists every mode).
-- **Render path.** puppeteer-core drives the system Chrome with GPU flags (`--use-angle=metal` on macOS). Several pages work in parallel, and lossless PNG frames are piped into ffmpeg in segments of about 20 s. Each finished segment is a file, so an interrupted render resumes. Segments are joined with `-c copy`, then the audio is muxed. Frame folders for a 4-minute 1080p video run to gigabytes, so avoid them.
+- **Render path.** puppeteer-core drives the system Chrome with GPU flags: `--use-angle=metal` on macOS; on Linux, ANGLE on Vulkan with framebuffer fetch off (Mesa's emulation drops overlapping `multiply` fills). It prints the GL renderer and refuses a software one (SwiftShader, llvmpipe) for a WebGL page. Several pages work in parallel (2 for WebGL pages, which lose contexts under load; a lost context stops the render rather than writing black frames), and lossless PNG frames are piped into ffmpeg in segments of about 20 s. Each finished segment is a file, hashed against every file the page loaded and the render settings: an interrupted render resumes, and a render after a change redoes exactly the stale segments and says what changed. Segments are joined with `-c copy`, then the audio is muxed. Frame folders for a 4-minute 1080p video run to gigabytes, so avoid them.
+- **Every output is verified:** frame count, audio present, a full decode. A failure exits 1, so a queue of renders can't log "done" over a broken file.
+- **Before a long render, `npm run sweep`** (part of `npm run smoke`): it syntax-checks every script under the page (dense one-line code plus an edit that adds a `//` comment breaks pages, and the error surfaces elsewhere), then draws a frame every 0.5 s and lists page errors, console warnings, non-finite numbers passed to canvas calls (a NaN coordinate draws nothing, silently) and WebGL errors. Any render stops if the page throws while loading.
+- **Drafts and fixes:** `--review` renders at full size and scales to 540p. `--redo=a:b` re-renders only the stale segments over a span you know you changed. `--patch=a:b --base=old.mp4` re-renders a span and splices it into a finished file at its keyframes, leaving every other frame bit-identical. `--aend=T` stops the audio at song time T with a short fade (a click at the end of an export, an end title over silence).
+- **Asking the page:** `--eval="expr"` prints a value from the ready page; `--setup="expr"` runs before drawing (hide a figure, try a camera) in any mode; `--grid="|a=1|a=2" --t=…` shows query variants side by side; `--crop=x,y,w,h` looks at full-resolution detail.
 - **Looking:** `--sheet=all` for the whole timeline, `--strip=a:b` for every drawing across a moment, `--onion=a:b` for spacing, and `--trails=a:b` for the paths of tracked points. `--query=marks` overlays the probe's boxes, tracks and safe area on any still.
 - **Parts and hand-offs:** `--scene=name` limits a render to one scene. `--handles=N` renders the scene alone past both ends. `--prores` makes ProRes 422 HQ for an editor, and `--prores=4444` adds alpha (`references/hybrid.md`).
-- **Colour range.** Convert explicitly to TV-range yuv420p and tag BT.709 (`scale=out_range=tv,format=yuv420p`, `-color_range tv -colorspace bt709 …`). JPEG intermediates otherwise come through as full-range `yuvj420p`, which some players show washed out.
+- **Colour range.** Convert explicitly to TV-range yuv420p with the BT.709 matrix and tag it (`scale=out_range=tv:out_color_matrix=bt709,format=yuv420p`, `-color_range tv -colorspace bt709 …`); older ffmpeg builds otherwise convert with BT.601. JPEG intermediates otherwise come through as full-range `yuvj420p`, which some players show washed out.
 - **Streaming and duration.** Use `-movflags +faststart`, and check that `moov` comes before `mdat`. Cap the output with `-t` so video and audio end together.
 - **Even dimensions.** x264 refuses odd widths/heights; crop to even before `format=yuv420p`.
 - **GIFs** of textured full frames are large (≈20 MB for 5 s at 900 px); ship an MP4 alongside. A 3-drawing boil loop of a still makes a small, charming GIF.
@@ -198,7 +202,7 @@ A contact sheet catches composition. It can't catch pace, a single bad frame, te
 - **Fades and flashes go on the top layer.** A fade to black on a layer below the text leaves the title floating over black.
 - **Fonts:** load them once, before `ready`. Glyph outlines (opentype.js) let you fill, knock out or animate text per letter. Wrap GSUB/feature parsing in try/catch.
 - **Headless timeouts:** set `protocolTimeout: 0`, retry page opens, and wait on an explicit `window.ready`.
-- **Plain `chrome --headless --screenshot` / `--dump-dom` can hang after writing its output.** Run it in the background with its own `--user-data-dir`, wait for the file, then kill it (`scripts/still.sh`).
+- **Plain `chrome --headless --screenshot` / `--dump-dom` can hang after writing its output.** Run it in the background with its own `--user-data-dir`, wait for the file, then kill it (`scripts/still.sh`). Never pass `--disable-gpu`: WebGL pages capture black.
 - **Outside video in the page:** seeking a `<video>` element in headless Chrome isn't frame accurate. Convert it to an image sequence (`references/hybrid.md`).
 - **Splines round corners.** A rectangle through Catmull-Rom becomes a pillow; draw straight edges as separate strokes crossing at the corners, or densify the polygon first.
 - **Camera clamps** keep the frame from showing past the edge of the world, but they can silently move framings. Log or visualise them.

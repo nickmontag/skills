@@ -145,7 +145,9 @@ Labels that must "stay on" a moving person:
 
 If `render.mjs` / puppeteer isn't available, plain Chrome works, with care:
 - `--headless=new --screenshot=out.png --window-size=W,H --virtual-time-budget=N URL` for stills; give each run
-  its own `--user-data-dir`. **Chrome can hang after writing the file**: start it in the background, wait until
+  its own `--user-data-dir`, keep the GPU on (`--disable-gpu` makes WebGL capture black), and pass
+  `--allow-file-access-from-files` so a canvas that draws file:// images stays readable.
+  `scripts/still.sh --dump page.html T out.png` returns `renderAt(T)`'s exact pixels instead of a screenshot. **Chrome can hang after writing the file**: start it in the background, wait until
   the file exists and is non-empty, then kill it (`scripts/still.sh`).
 - For a whole sequence without a process per frame: render every frame in the page to JPEG data URLs inside a
   `<textarea>`, run `--dump-dom`, wait for `</html>` in the output, kill Chrome, and decode the frames.

@@ -96,7 +96,9 @@ up, mouth small) ~0.2 s before phrases.
 
 ## 7. Checking sync
 - Automated: mark every word with `mark.text(ctx, id, word, x, y, { onset })`; `npm run probe && npm run check`
-  fails any word more than 1.5 frames early or not complete within 0.9 s (`references/checks-and-pace.md`).
+  fails any word shown more than one frame before its onset or not complete within 0.9 s
+  (`references/checks-and-pace.md`). The onset is the word's first audible sound, its consonant: aligners report
+  the vowel, a median ~130 ms late. Onsets are in timeline time; convert song-time data first if the clocks differ.
 - Visual: pull frames from the **final encoded file** just before and just after each hit
   (`ffmpeg -ss T -i out.mp4 -frames:v 1 f.png`), remembering any pre-roll offset (video time = song time + pre-roll).
 - Listen, if you can, or ask the person to: this is the only real test of lip sync and feel.

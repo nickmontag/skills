@@ -42,12 +42,19 @@ mark.state('reveal.page', drawnLength)             // anything a project rule ne
 
 `out/probe.json` has one frame per line, so `grep '"t":3.5'` finds a moment.
 
+**Times are timeline times:** probe frames, scene spans and every `onset` are the `t` that `renderAt(t)` draws. Video
+time is t + pre-roll, and the report prints both. If the timing data runs on another clock (a song with its own
+lead-in, a re-exported song mapped onto the old timeline), convert onsets before marking them, or every word reads
+as early or late by the offset.
+
 ## 2. Checks: rules that run
 
 `tools/checks.mjs` runs the built-in rules over the probe, then the project's own rules from `rules.mjs`, then the
 approval gates in `shots.json`. Errors exit 1; warnings don't. The header of `checks.mjs` lists the built-ins: text
 early, late, outside the safe area, covered, overlapping, too small, too brief to read; single-frame pops; reveals
-going backwards; sustained camera and motion speed against the scene's tempo; shot length; the gates. It ends with a
+going backwards; sustained camera and motion speed against the scene's tempo; shot length; the gates. Text may
+appear one frame before its onset (`textEarly` in `rules.mjs` changes the allowance). Speed windows that straddle a
+cut are skipped, so declare a jump inside a scene with `mark.plan('cut')` on its first frame. It ends with a
 pace table: each scene's sustained maxima next to its limits.
 
 **Turn every note into a rule.** A note written only in prose gets broken again, often by the model that wrote it

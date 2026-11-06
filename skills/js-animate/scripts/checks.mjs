@@ -3,17 +3,25 @@
 //   node tools/checks.mjs [--probe=out/probe.json] [--rules=rules.mjs] [--shots=shots.json] [--only=rule,rule] [--json]
 //   node tools/checks.mjs --approve=ID [--shots=shots.json]    record an approval: ONLY after the person said yes in chat
 //
-// Make the probe first: node tools/render.mjs --page=index.html --probe. Built-in rules:
-//   text-early    error  text visible more than 1.5 frames before its onset
+// Make the probe first: node tools/render.mjs --page=index.html --probe.
+// Every time here is timeline time t, the time renderAt(t) draws: probe frames, scene spans, and the onsets marks carry.
+// Video time = t + pre-roll (the report shows both). If timing data is in another clock (song time with its own lead-in,
+// or a song re-exported and mapped onto the old timeline), convert onsets to timeline time before marking them.
+// Built-in rules:
+//   text-early    error  text visible more than 1 frame before its onset. The onset is the first audible sound of the word
+//                        (its consonant, not the vowel a word aligner reports: that lands ~130 ms late), and the frame
+//                        before the one on screen at the onset may show the text. Allowance in frames: --text-early=N, `export const textEarly`
+//                        in rules.mjs, or { early: N } on the mark
 //   text-late     error  text not fully shown 0.9 s after its onset (or its own { within }), or never shown
 //   text-safe     error  text outside the title-safe area
 //   text-covered  error  text overlapped by something drawn over it
 //   text-overlap  warn   two texts overlapping
 //   text-small    warn   cap height under 4 % of the frame height (44 px at 1080p)
 //   text-read     warn   text marked { read: true } on screen for less than 1.5 s + 1 s per 15 characters
-//   pop           error  a tracked point jumps in a single frame (unless planned 'cut' / 'whip')
+//   pop           error  a tracked point jumps in a single frame (unless planned 'cut' / 'whip' / 'fast')
 //   reveal        error  a 'reveal.*' state going backwards: something un-drawing (unless planned 'unreveal')
-//   camera-speed  warn   sustained camera movement (0.5 s window) faster than the scene's tempo allows
+//   camera-speed  warn   sustained camera movement (0.5 s window) faster than the scene's tempo allows; a window that
+//                        straddles a cut (scene change, seam, planned 'cut' / 'whip') isn't a camera move and is skipped
 //   motion-speed  warn   a tracked point's sustained speed above the tempo's limit (unless planned 'smear' / 'fast')
 //   shot-length   warn   a scene shorter than its tempo's minimum
 //   gate          error  shots.json: work that uses something not approved; approved files changed since approval
@@ -77,7 +85,10 @@ if (probePath) {
     const k0 = seen[0].k, label = `"${k0.text ?? id}"`;
     if (k0.onset != null) {
       const first = seen.find(s => s.k.alpha > .05);
-      if (want('text-early') && first && first.f.t < k0.onset - 1.5 / P.fps) add('text-early', 'error', first.f.t, id, `${label} visible ${(k0.onset - first.f.t).toFixed(3)} s before its onset (${k0.onset})`);
+      // counted from the frame on screen when the onset happens (frames sit at i / fps - pre-roll)
+      const early = +(k0.early ?? args['text-early'] ?? R.textEarly ?? 1), pre = P.preroll || 0, onFrame = Math.floor((k0.onset + pre) * P.fps + 1e-6) / P.fps - pre;
+      const by = first ? Math.round((onFrame - first.f.t) * P.fps) : 0;
+      if (want('text-early') && first && by > early) add('text-early', 'error', first.f.t, id, `${label} visible ${by} frames before its onset (${k0.onset}); allowed ${early}`);
       const full = seen.find(s => s.k.alpha >= .95 && (s.k.shown ?? 1) >= .99);
       const within = k0.within ?? .9;
       if (want('text-late') && (!full || full.f.t > k0.onset + within)) add('text-late', 'error', full ? full.f.t : k0.onset, id, full ? `${label} only fully shown ${(full.f.t - k0.onset).toFixed(2)} s after its onset (limit ${within} s; a deliberate slow reveal can declare { within })` : `${label} is never fully shown`);
@@ -103,7 +114,7 @@ if (probePath) {
   for (const id of ids) {
     const d = fr.map((f, i) => i && same(fr[i - 1], f) && f.tracks[id] && fr[i - 1].tracks[id] ? Math.hypot(f.tracks[id][0] - fr[i - 1].tracks[id][0], f.tracks[id][1] - fr[i - 1].tracks[id][1]) : null);
     for (let i = 1; i < fr.length; i++) {
-      if (d[i] == null || !want('pop') || hasPlan(fr[i], 'cut', 'whip')) continue;
+      if (d[i] == null || !want('pop') || hasPlan(fr[i], 'cut', 'whip', 'fast')) continue;
       const nb = []; for (let j = i - 6; j <= i + 6; j++) if (j !== i && d[j] > .5) nb.push(d[j]); nb.sort((a, b) => a - b);
       const typical = nb.length ? nb[nb.length >> 1] : 0;
       if (d[i] > Math.max(40, 6 * typical)) add('pop', 'error', fr[i].t, id, `${id} jumps ${d[i].toFixed(0)} px in one frame (typical ${typical.toFixed(0)} px)`, d[i]);
@@ -122,6 +133,8 @@ if (probePath) {
   for (let i = half; i < fr.length - half; i++) {
     const a = fr[i - half], b = fr[i + half], f = fr[i];
     if (!a.cam || !b.cam || a.scene !== b.scene || a.seam || b.seam) continue;
+    // a window across a cut measures the jump between two shots, not a camera move
+    let cut = false; for (let j = i - half + 1; j <= i + half; j++) if (!same(fr[j - 1], fr[j]) || hasPlan(fr[j], 'whip')) cut = true; if (cut) continue;
     const dt = b.t - a.t, v = Math.hypot(b.cam.x - a.cam.x, b.cam.y - a.cam.y) * f.cam.z / (dt * W), z = Math.abs(Math.log(b.cam.z / a.cam.z)) / dt, p = pace.get(f.scene);
     if (p) { p.cam = Math.max(p.cam, v); p.zoom = Math.max(p.zoom, z); }
     if (!hasPlan(f, 'smear', 'fast')) for (const id of ids) if (a.tracks[id] && b.tracks[id] && p) p.move = Math.max(p.move, Math.hypot(b.tracks[id][0] - a.tracks[id][0], b.tracks[id][1] - a.tracks[id][1]) / (dt * W));
